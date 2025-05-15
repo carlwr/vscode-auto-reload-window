@@ -1,0 +1,177 @@
+---
+description: Guidelines for editing code
+globs:
+alwaysApply: false
+---
+# editing existing code
+
+for code you write:
+* make sure _the new code_ - the code _you add_ - follows the guidelines in section "# code style for _new code_"
+* note: this is true whether you add code as an edit to an existing line, or you add one or a few lines to an existing file, or you write a full new file or function from scratch
+
+"only change the code you need to change":
+* do not edit or change you don't _need_ to change
+* i.e. do not edit code adjacent to edits you _need_ to do for the sake of aligning it to the code style guidelines - those guidelines are only for _new code that you (need to) write_
+* (you might be explicitly instructed to edit code to make it adhere to the guidelines - then you shall of course do so)
+
+**remember that existing code is possibly carefully crafted and iterated on over a long time - the current state of the code is possibly the result of a great investment in time and effort**
+
+when rewriting or refactoring larger chunks of code:
+* in these situations, you _are_ supposed to feel ownership of the re-written code, and you _should_ make sure the revised code, as a whole, is well-written
+* however, also in the se situations, segments of the existing code should be re-used where possible
+
+if you encounter sections of commented-out code, excerpts from documentation etc. as code comments, you should not remove these, unless requested to or unless something should obviously be removed
+
+**code comments instructing that a comment or function may not be removed must always be obeyed**
+such comments or code blocks:
+* may _never_ be removed
+* can be moved up/down/to a higher-level scope if you need to re-write the context around such comments/code
+
+
+# code style for _new code_
+
+code style:
+- prefer: declarative code, pure functions, functional style
+- use type-safe, robust, and well-abstracted solutions
+- keep code DRY
+
+favor conciseness:
+- when choosing names for new variables, functions, types and files: choose _short_ and simple names
+- eliminate or minimize code comments; instead write self-explanatory code
+- avoid unnecessary error handling
+- avoid printing messages for success and failure, especially if invoked tool/code already provides output
+
+
+## code style: BAD-GOOD examples
+
+don't use unnecessary intermediate variables:
+```typescript
+
+/* BAD:
+const mode = vscode.ExtensionMode[ctx.extensionMode] // BAD
+log.info(`mode: ${mode}`); // BAD
+*/
+
+// instead - GOOD:
+log.info(`mode: ${vscode.ExtensionMode[ctx.extensionMode]}`);
+
+```
+
+choose short variable names:
+```typescript
+
+/* BAD:
+const argIndex = args.indexOf('--long-option'); // BAD
+return argIndex !== -1 && args.length > argIndex + 1 ? args[argIndex + 1] : ''; // BAD
+*/
+
+// instead - GOOD:
+const i = args.indexOf('--long-option');
+return i !== -1 && args.length > i + 1 ? args[i + 1] : '';
+
+```
+
+eliminaten comments - instead make code self-documenting:
+```typescript
+
+/* BAD
+// Report validation results  // <-- BAD (comment)
+const printErrorsToTerminal = (errors: Error[]) => { // <- BAD (long function name)
+  doThings;
+}
+*/
+
+// instead - GOOD:
+const reportValidation = (errors: Error[]) => {
+  doThings;
+}
+
+```
+
+when suitable, make code readable by breaking into multiple lines and use whitespace padding to align similarly named variables and function names:
+```typescript
+
+/* BAD:
+  return settingOn || (!settingOff && defaultToOff ) // BAD
+*/
+
+// instead - GOOD:
+  return (
+      settingOn ||                  // note: whitespace-padded to the left...
+    (!settingOff && defaultToOff )  //       ...so that "settings" line up with this line
+  )
+//    ^^^^^^ note: the "settings" substring, common to both variable names, line up
+
+```
+
+
+# code structure
+
+at the top-level scope, and at the top of the file, the following should be placed (in order):
+
+1. values that are literals, that needs to be matched by other files/code, and values of "magic value" nature
+
+2. functions, expressions etc. that express design decision and core business logic
+  * these must be stripped of implementation details so that they stay clear and simple
+
+example of the above:
+
+```typescript
+import { getFlag } from "type-flag";
+
+const devFlag    = getFlag("--dev", Boolean);
+const assetsDir = './assets';
+
+function cfgEnabled(): boolean {return getCfg.get<boolean >('enabled',false);}
+function cfgGlobs()  : string[]{return getCfg.get<string[]>('globs'  , [])  ;}
+
+function cfgChanged(event: vscode.ConfigurationChangeEvent): boolean {
+  return (
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.enabled`) ||
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.globs`)
+  );
+}
+
+function includeDir(dir: string) {
+  return devFlag && (dir === assetsDir)
+}
+
+// ... implementation code follows here ...
+
+
+```
+
+the same code with clarifying comments  - note that comments below are inserted to clarify this example - similar comments may, of course, never be inserted in code you write:
+
+```typescript
+import { getFlag } from "type-flag";
+
+
+// 1. values that are literal etc.:
+
+const devFlag    = getFlag("--dev", Boolean);
+const assetsDir = './assets';
+// both "--dev" and the dir name "assets" clearly has the nature of a "magic value", or string literal
+
+// in this example, the code needs to refer to two settings identified with the strings "enabled" and "globs". These strings are clearly "literal" in nature, and hence must be floated to here. In this case, implement functions need to reference the current, live values of these settings, and hence their values cannot be stored in a const variable - rather, in this case, we float _functions_ that contain these strings:
+function cfgEnabled(): boolean {return getCfg.get<boolean >('enabled',false);}
+function cfgGlobs()  : string[]{return getCfg.get<string[]>('globs'  , [])  ;}
+function cfgChanged(event: vscode.ConfigurationChangeEvent): boolean {
+  return (
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.enabled`) ||
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.globs`)
+  );
+}
+// note that any implementation details must be stripped from the above functions - implementation details must go in the implementation section.
+
+// 2. design decisions, core business logic:
+
+function includeDir(dir: string) {
+  return devFlag && (dir === assetsDir)
+}
+// here, at some point, the implementation code would include a directory if the dev flag was set _and_ the directory matches the "assets" dir. When writing the implementation, the boolean law-like nature must be identified and the code refactored as to be able to place a dedicated function expressing this at the top-level. Note that the function has been stripped of _any_ implementation details - in this case, it encodes only the core boolean law.
+
+// ... implementation code follows here ...
+
+
+```

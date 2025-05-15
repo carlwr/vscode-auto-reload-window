@@ -1,0 +1,47 @@
+---
+description: Guidelines for autonomous tasks - always read before such work
+globs:
+alwaysApply: false
+---
+# guidelines for autonomous work
+
+
+## misc.
+
+do not read, and do not update/edit, the following files (unless explicitly requested to):
+- Makefile
+- README.md
+- other docs
+
+
+## project config, dependencies
+
+managing dependencies:
+* never edit dependencies in package.json manually, instead use or suggest `pnpm add` or `pnpm add -D` commands: let pnpm edit dependencies in package.json
+
+organization:
+- when feasible, avoid configuration/build logic in `package.json` - instead prefer code-based configuration e.g. in build.ts
+
+
+## eslint: `eslint.config.js`
+
+The project uses the modern `eslint.config.js` "flat" config format.
+
+It DOES NOT, and MAY NOT, use the older `.eslintrc.json` format.
+
+
+## linting: how to run `eslint`
+
+Always recompile the project just before running `eslint`.
+
+When you iterate on linting errors for a specific source file, _run eslint on that source file only_:
+```zsh
+pnpm build && pnpm exec eslint src/cfg.ts
+```
+
+To check/verify the whole project, use the `eslint` script in `package.json`:
+```zsh
+pnpm build && pnpm eslint
+
+```
+

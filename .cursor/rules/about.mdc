@@ -1,0 +1,29 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# project
+
+## key files
+- package.json
+- build.ts (main build script)
+- src/extension.ts
+
+
+## example terminal commands
+
+```zsh
+# invoking `tsx`:
+pnpm tsx ...  # correct
+tsx ...       # ERROR - DON'T USE - `tsx` is not on PATH
+```
+
+commands that run or may run forever must be called with a timeout:
+```zsh
+timeout -v 4 <may-run-forever-command>
+
+# `timeout` is available on PATH:
+timeout --version|head -n1
+  # "timeout (GNU coreutils) 9.7"
+```

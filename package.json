@@ -1,0 +1,86 @@
+{
+  "name": "auto-reload-window",
+  "displayName": "auto-reload-window",
+  "description": "automatically reload the VS Code window when a file changes",
+  "author": {
+    "name": "carlwr",
+    "url": "https://github.com/carlwr"
+  },
+  "publisher": "carlwr",
+  "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carlwr/vscode-auto-reload-window"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "auto-reload-window.reloadWindow",
+        "title": "Reload Window"
+      }
+    ],
+    "configuration": {
+      "title": "auto-reload-window",
+      "properties": {
+        "auto-reload-window.enabled": {
+          "type": "string",
+          "enum": [
+            "false",
+            "true",
+            "true-devMode-only"
+          ],
+          "default": "false"
+        },
+        "auto-reload-window.globsToWatch": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "syntaxes/*.tmLanguage.json"
+          ],
+          "description": "A list of files or globs to watch for changes"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsx build.ts",
+    "package": "tsx build.ts --package",
+    "vscode:prepublish": "tsx build.ts",
+    "eslint": "eslint \"src/**/*.ts\" \"build.ts\" --cache --max-warnings=40",
+    "typecheck": "tsc --noEmit",
+    "LAST_dummy": ""
+  },
+  "packageManager": "pnpm@10.8.0",
+  "devDependencies": {
+    "@eslint/js": "^9.26.0",
+    "@tsconfig/node22": "^22.0.1",
+    "@types/minimist": "1.2.5",
+    "@types/node": "^22.15.3",
+    "@types/vscode": "1.96.0",
+    "@vscode/vsce": "3.4.0",
+    "eslint": "^9.26.0",
+    "tsup": "8.4.0",
+    "tsx": "^4.19.4",
+    "type-flag": "^3.0.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.1",
+    "zzz_LAST_dummy": "npm:empty-npm-package@1.0.0"
+  },
+  "__metadata": {
+    "size": 156172524
+  }
+}
