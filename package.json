@@ -25,23 +25,22 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "auto-reload-window.reloadWindow",
-        "title": "Reload Window"
-      }
-    ],
     "configuration": {
       "title": "auto-reload-window",
       "properties": {
         "auto-reload-window.enabled": {
           "type": "string",
           "enum": [
-            "false",
-            "true",
-            "true-devMode-only"
+            "off",
+            "on",
+            "devModeOnly"
           ],
-          "default": "false"
+          "markdownEnumDescriptions": [
+            "off: disable auto-reload",
+            "on: enable auto-reload",
+            "devModeOnly: enable if the window is running the development extension host / the extension host is running in development mode"
+          ],
+          "default": "off"
         },
         "auto-reload-window.globsToWatch": {
           "type": "array",
@@ -51,7 +50,7 @@
           "default": [
             "syntaxes/*.tmLanguage.json"
           ],
-          "description": "A list of files or globs to watch for changes"
+          "description": "A list of files or globs to watch for changes."
         }
       }
     }

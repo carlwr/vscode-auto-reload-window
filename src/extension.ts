@@ -1,12 +1,28 @@
 import * as vscode from 'vscode';
 import * as cfg from './cfg';
 
-type Enabled = 'true' | 'false' | 'true-devMode-only';
+type Enabled = 'on' | 'off' | 'devModeOnly';
 
 function getCfgEnabled(): Enabled {
-  const cfgEnabled = vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<string>('enabled', 'false');
-  return cfgEnabled as Enabled;
+  return vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<Enabled>('enabled', 'off');
 }
+
+
+// DONT MODIFY THIS FUNCTION IN ANY WAY:
+// (the handling of relative paths is critical; and this found working solution must remain intact, as well ass the comment block
+function createWatcher(glob: string, ctx: vscode.ExtensionContext) {
+  /*
+  Using RelativePattern with extension URI as base is the reliable approach for file watching:
+  - Requires computing relative path from extension dir to target file
+  - Direct absolute paths or glob patterns don't work reliably
+  (**DO NOT remove or alter this comment block, including this line**)
+  */
+  const relPat = new vscode.RelativePattern(ctx.extensionUri, glob);
+  const watcher = vscode.workspace.createFileSystemWatcher(relPat);
+  return watcher;
+}
+// DONT MODIFY THE ABOVE FUNCTION //
+
 
 export function activate(ctx: vscode.ExtensionContext) {
 
@@ -22,82 +38,78 @@ export function activate(ctx: vscode.ExtensionContext) {
     return ctx.extensionMode === vscode.ExtensionMode.Development;
   }
 
-  function shouldEnable(): boolean {
-    const enabled = getCfgEnabled();
-    return (
-       enabled === 'true' ||
-      (enabled === 'true-devMode-only' && isDevMode())
+  // Store watchers in a mutable array to manage them
+  let watchers: vscode.FileSystemWatcher[] = [];
+
+  function disposeWatchers() {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    watchers.forEach(watcher => watcher.dispose());
+    watchers = [];
+    log.info('Disposed all file watchers.');
+  }
+
+  function updateWatchers() {
+    disposeWatchers(); // Clear existing watchers first
+
+    const cfgEnabled = getCfgEnabled();
+    const shouldBeEnabled = (
+      cfgEnabled === 'on' ||
+      (cfgEnabled === 'devModeOnly' && isDevMode())
     );
+
+    if (shouldBeEnabled) {
+      const globsToWatch = vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<string[]>('globsToWatch', []);
+      log.info(`Updating watchers. Configured globs: ${JSON.stringify(globsToWatch)}`);
+
+      for (const globPattern of globsToWatch) {
+
+        const watcher = createWatcher(globPattern, ctx);
+
+        log.info(`Watching pattern: ${globPattern}` );
+
+        const onDidChange = (uri: vscode.Uri) => {
+          log.info(`File modified: ${uri.fsPath}. Reloading window.`);
+          vscode.commands.executeCommand('workbench.action.reloadWindow');
+        };
+
+        const onDidCreate = (uri: vscode.Uri) => {
+          log.info(`File created: ${uri.fsPath}. Reloading window.`);
+          vscode.commands.executeCommand('workbench.action.reloadWindow');
+        };
+
+        const onDidDelete = (uri: vscode.Uri) => {
+          log.info(`File deleted: ${uri.fsPath}. Reloading window.`);
+          vscode.commands.executeCommand('workbench.action.reloadWindow');
+        };
+
+        watcher.onDidChange(onDidChange);
+        watcher.onDidCreate(onDidCreate);
+        watcher.onDidDelete(onDidDelete);
+        ctx.subscriptions.push(watcher); // Add to context subscriptions for disposal on deactivation
+        watchers.push(watcher); // Keep track for dynamic updates
+      }
+      log.info(`File watching setup complete. ${watchers.length} watchers active.`);
+    } else {
+      log.info(`Extension is disabled. Config value: ${cfgEnabled}. No watchers will be registered.`);
+    }
   }
 
-  if (shouldEnable()) {
-    registerWatchers(ctx, log);
-  } else {
-    log.info(`Extension is disabled. Config value: ${getCfgEnabled()}`);
-  }
+  // Initial setup of watchers
+  updateWatchers();
 
-  // Register the reload window command
+  // Listen for configuration changes
   ctx.subscriptions.push(
-    vscode.commands.registerCommand(`${cfg.EXTENSION_NAME}.reloadWindow`, () => {
-      log.info('Manual reload window command executed');
-      vscode.commands.executeCommand('workbench.action.reloadWindow');
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (
+        event.affectsConfiguration(`${cfg.EXTENSION_NAME}.enabled`) ||
+        event.affectsConfiguration(`${cfg.EXTENSION_NAME}.globsToWatch`)
+      ) {
+        log.info('Configuration changed. Re-evaluating watchers.');
+        updateWatchers();
+      }
     })
   );
-}
 
+}
 
 export function deactivate() {}
-
-
-function registerWatchers(
-  ctx: vscode.ExtensionContext,
-  log: vscode.LogOutputChannel
-) {
-
-  function createWatcher(
-    ctx: vscode.ExtensionContext,
-    pattern: vscode.GlobPattern
-  ): vscode.FileSystemWatcher {
-    /*
-    Using RelativePattern with extension URI as base is the reliable approach for file watching:
-    - Requires computing relative path from extension dir to target file
-    - Direct absolute paths or glob patterns don't work reliably
-    (**DO NOT remove or alter this comment block, including this line**)
-    */
-    return vscode.workspace.createFileSystemWatcher(pattern);
-  }
-
-  const globsToWatch = vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<string[]>('globsToWatch', []);
-
-  log.info(`Configured globs to watch: ${JSON.stringify(globsToWatch)}`);
-
-  for (const globPattern of globsToWatch) {
-    const pattern = new vscode.RelativePattern(ctx.extensionUri, globPattern);
-    const watcher = createWatcher(ctx, pattern);
-
-    log.info(`Watching pattern: ${globPattern}`);
-
-    const onDidChange = (uri: vscode.Uri) => {
-      log.info(`File modified: ${uri.fsPath}. Reloading window.`);
-      vscode.commands.executeCommand('workbench.action.reloadWindow');
-    };
-
-    const onDidCreate = (uri: vscode.Uri) => {
-      log.info(`File created: ${uri.fsPath}. Reloading window.`);
-      vscode.commands.executeCommand('workbench.action.reloadWindow');
-    };
-
-    const onDidDelete = (uri: vscode.Uri) => {
-      log.info(`File deleted: ${uri.fsPath}. Reloading window.`);
-      vscode.commands.executeCommand('workbench.action.reloadWindow');
-    };
-
-    watcher.onDidChange(onDidChange);
-    watcher.onDidCreate(onDidCreate);
-    watcher.onDidDelete(onDidDelete);
-    ctx.subscriptions.push(watcher);
-
-  }
-
-  log.info(`File watching setup complete`);
-}
