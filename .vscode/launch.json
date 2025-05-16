@@ -2,25 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Build",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "pnpm build"
-    },
-    {
-      "name": "Run",
+      "name": "Build and Run",
       "type": "extensionHost",
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
       "env": {
         "VSC_ARW_ENABLED": "on"
-      }
+      },
+      "preLaunchTask": "Build"
     }
   ],
-  "compounds": [
-    {
-      "name": "Build & Run",
-      "configurations": ["Build", "Run"]
-    }
-  ]
 }

@@ -1,3 +1,7 @@
+Available on the [VS Code Marketplace][marketplace].
+
+[marketplace]: https://marketplace.visualstudio.com/items?itemName=carlwr.auto-reload-window
+
 Minimal VSCode extension to automatically reload the VSCode window when a file changes.
 
 The intended use case is with extension development E.g. with extensions contributing a language grammar, the only way to make VS Code re-tokenize an open file from a language grammar that changed on disk is to reload the window. With this extension, such a reload can be configured to happen automatically every time the grammar changes.
@@ -10,19 +14,21 @@ Using project files as follows will automatically reload a _development host win
 // $PROJ/.vscode/settings.json:
 {
   "auto-reload-window.enabled": "fromEnvVar",
-  "auto-reload-window.globs": ["syntaxes/myGrammar.tmLanguage.json"]
 }
 
 // $PROJ/.vscode/launch.json:
 {
   "configurations": [
     {
-      "name": "Run",
+      "name": "Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
       "env": {
-        "VSC_ARW_ENABLED": "on"
+        "VSC_ARW_ENABLED": "on",
+        "VSC_ARW_GLOBS": "${workspaceFolder}/syntaxes/*.json"
       }
     }
   ]

@@ -48,10 +48,8 @@
           "items": {
             "type": "string"
           },
-          "default": [
-            "syntaxes/*.tmLanguage.json"
-          ],
-          "description": "A list of files or globs to watch for changes."
+          "default": [],
+          "markdownDescription": "A list of absolute file paths to watch for. The file part may be a glob. Examples of legal items:\n* `/home/user/myExt/file.js`\n* `/home/user/myLangExt/syntaxes/*.json`"
         }
       }
     }
