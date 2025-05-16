@@ -1,12 +1,30 @@
 import * as vscode from 'vscode';
 import * as cfg from './cfg';
 
-type Enabled = 'on' | 'off' | 'devModeOnly';
+const envVarEnabled = 'VSC_ARW_ENABLED';
 
-function getCfgEnabled(): Enabled {
-  return vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<Enabled>('enabled', 'off');
+const getCfg = vscode.workspace.getConfiguration(cfg.EXTENSION_NAME)
+
+function cfgEnabled(): boolean {return getCfg.get<boolean >('enabled',false);}
+function cfgGlobs()  : string[]{return getCfg.get<string[]>('globs'  , [])  ;}
+
+function cfgChanged(event: vscode.ConfigurationChangeEvent): boolean {
+  return (
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.enabled`) ||
+    event.affectsConfiguration(`${cfg.EXTENSION_NAME}.globs`)
+  );
 }
 
+function getEnvVarEnabled(ctx: vscode.ExtensionContext): boolean {
+  // returns true if VSC_ARW_ENABLED is set to 'on', false in all other cases
+
+  for (const [variable, mutator] of ctx.environmentVariableCollection) {
+    if (variable === envVarEnabled) {
+      return mutator.value === 'on';
+    }
+  }
+  return false;
+}
 
 // DONT MODIFY THIS FUNCTION IN ANY WAY:
 // (the handling of relative paths is critical; and this found working solution must remain intact, as well ass the comment block
@@ -24,19 +42,50 @@ function createWatcher(glob: string, ctx: vscode.ExtensionContext) {
 // DONT MODIFY THE ABOVE FUNCTION //
 
 
-export function activate(ctx: vscode.ExtensionContext) {
+function shouldEnable(
+  ctx: vscode.ExtensionContext,
+  log: vscode.LogOutputChannel
+): boolean {
+  // this function does not work currently: `ctx.environmentVariableCollection` is empty, so apparently cannot be used to check for env. vars which we need. log.info-s were added to help debug, as well as comments on what they output. This is temporary and should be removed when implementing proper checking for the env. var.
+
+  log.info('shouldEnable() called');
+    // -> this does print
+
+  // use ctx.environmentVariableCollection.forEach to print all env vars:
+  ctx.environmentVariableCollection.forEach(([variable, mutator]) => {
+    log.info(`  env.var : ${variable}='${mutator}'`);
+  });
+    // -> prints nothing
+    // so environmentVariableCollection is empty (?)
+
+  for (const [variable, mutator] of ctx.environmentVariableCollection) {
+    log.info(`  env.var: ${variable}='${mutator.value}'`);
+    if (variable === envVarEnabled) {
+      log.info(`${variable} is set to '${mutator.value}'.`);
+    }
+  }
+
+  if (getEnvVarEnabled(ctx)) {
+    log.info(`${envVarEnabled} is set to 'on'.`);
+    return true;
+  }
+
+  if (cfgEnabled()) {
+    log.info(`setting "enabled" is set to 'on'.`);
+    return true;
+  }
+
+  return false;
+}
+
+export function activate(ctx: vscode.ExtensionContext): void {
 
   const log = vscode.window.createOutputChannel(cfg.EXTENSION_NAME, { log: true });
   ctx.subscriptions.push(log);
 
   log.info('');
   log.info('activated');
-  log.info(`mode: ${vscode.ExtensionMode[ctx.extensionMode]}`);
   log.info(`extension path: ${ctx.extensionUri.fsPath}`);
-
-  function isDevMode(): boolean {
-    return ctx.extensionMode === vscode.ExtensionMode.Development;
-  }
 
   // Store watchers in a mutable array to manage them
   let watchers: vscode.FileSystemWatcher[] = [];
@@ -45,52 +94,51 @@ export function activate(ctx: vscode.ExtensionContext) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     watchers.forEach(watcher => watcher.dispose());
     watchers = [];
-    log.info('Disposed all file watchers.');
   }
 
   function updateWatchers() {
     disposeWatchers(); // Clear existing watchers first
+    log.info('disposed all file watchers.');
 
-    const cfgEnabled = getCfgEnabled();
-    const shouldBeEnabled = (
-      cfgEnabled === 'on' ||
-      (cfgEnabled === 'devModeOnly' && isDevMode())
-    );
+    const doEnable = shouldEnable(ctx, log)
+    log.info(`enable watchers?: ${doEnable}`);
 
-    if (shouldBeEnabled) {
-      const globsToWatch = vscode.workspace.getConfiguration(cfg.EXTENSION_NAME).get<string[]>('globsToWatch', []);
-      log.info(`Updating watchers. Configured globs: ${JSON.stringify(globsToWatch)}`);
+    if (doEnable) {
+      const globs = cfgGlobs();
+      log.info(`configured globs: ${JSON.stringify(globs)}`);
 
-      for (const globPattern of globsToWatch) {
-
-        const watcher = createWatcher(globPattern, ctx);
-
-        log.info(`Watching pattern: ${globPattern}` );
+      for (const glob of globs) {
+        log.info(`watching glob: ${glob}` );
 
         const onDidChange = (uri: vscode.Uri) => {
-          log.info(`File modified: ${uri.fsPath}. Reloading window.`);
+          log.info(`modified: ${uri.fsPath}. Reloading window.`);
           vscode.commands.executeCommand('workbench.action.reloadWindow');
         };
 
         const onDidCreate = (uri: vscode.Uri) => {
-          log.info(`File created: ${uri.fsPath}. Reloading window.`);
+          log.info(`created: ${uri.fsPath}. Reloading window.`);
           vscode.commands.executeCommand('workbench.action.reloadWindow');
         };
 
         const onDidDelete = (uri: vscode.Uri) => {
-          log.info(`File deleted: ${uri.fsPath}. Reloading window.`);
+          log.info(`deleted: ${uri.fsPath}. Reloading window.`);
           vscode.commands.executeCommand('workbench.action.reloadWindow');
         };
+
+        const watcher = createWatcher(glob, ctx);
 
         watcher.onDidChange(onDidChange);
         watcher.onDidCreate(onDidCreate);
         watcher.onDidDelete(onDidDelete);
-        ctx.subscriptions.push(watcher); // Add to context subscriptions for disposal on deactivation
-        watchers.push(watcher); // Keep track for dynamic updates
-      }
-      log.info(`File watching setup complete. ${watchers.length} watchers active.`);
-    } else {
-      log.info(`Extension is disabled. Config value: ${cfgEnabled}. No watchers will be registered.`);
+
+        ctx.subscriptions.push(watcher);
+          // Add to context subscriptions for disposal on deactivation
+
+        watchers.push(watcher);
+          // Keep track for dynamic updates
+
+        }
+      log.info(`updated watchers (active: ${watchers.length})`);
     }
   }
 
@@ -100,10 +148,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   // Listen for configuration changes
   ctx.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(event => {
-      if (
-        event.affectsConfiguration(`${cfg.EXTENSION_NAME}.enabled`) ||
-        event.affectsConfiguration(`${cfg.EXTENSION_NAME}.globsToWatch`)
-      ) {
+      if (cfgChanged(event)) {
         log.info('Configuration changed. Re-evaluating watchers.');
         updateWatchers();
       }

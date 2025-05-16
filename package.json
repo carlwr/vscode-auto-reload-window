@@ -33,16 +33,17 @@
           "enum": [
             "off",
             "on",
-            "devModeOnly"
+            "fromEnvVar"
           ],
           "markdownEnumDescriptions": [
             "off: disable auto-reload",
             "on: enable auto-reload",
-            "devModeOnly: enable if the window is running the development extension host / the extension host is running in development mode"
+            "fromEnvVar: let `VSC_ARW_ENABLED` value decide"
           ],
-          "default": "off"
+          "default": "fromEnvVar",
+          "markdownDescription": "With the option `fromEnvVar`, auto-reload is enabled if the environment variable `VSC_ARW_ENABLED` is set and has the value `'on'`, and is disabled in all other cases."
         },
-        "auto-reload-window.globsToWatch": {
+        "auto-reload-window.globs": {
           "type": "array",
           "items": {
             "type": "string"
