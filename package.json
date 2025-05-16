@@ -57,7 +57,8 @@
   "scripts": {
     "build": "tsx build.ts",
     "package": "tsx build.ts --package",
-    "vscode:prepublish": "tsx build.ts",
+    "publish": "pnpm package && vsce publish",
+    "vscode:prepublish": "pnpm typecheck && pnpm eslint && tsx build.ts",
     "eslint": "eslint \"src/**/*.ts\" \"build.ts\" --cache --max-warnings=40",
     "typecheck": "tsc --noEmit",
     "LAST_dummy": ""
